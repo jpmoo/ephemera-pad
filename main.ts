@@ -212,11 +212,12 @@ class NotepadView extends ItemView {
 		);
 
 		const right = bar.createDiv({ cls: "np-bar-group np-bar-right" });
-		this.swatchEl = right.createEl("input", {
-			cls: "np-swatch",
-			attr: { type: "color", title: "Note color" },
-		});
-		this.swatchEl.oninput = () => this.setColor(this.swatchEl.value);
+		this.swatchEl = makeColorSwatch(
+			right,
+			this.plugin.settings.defaultColor,
+			(v) => this.setColor(v)
+		);
+		this.swatchEl.title = "Note color";
 
 		// Nav row
 		const nav = this.cardEl.createDiv({ cls: "np-nav" });
@@ -325,7 +326,11 @@ class NotepadView extends ItemView {
 		this.cardEl.style.setProperty("--np-fg-faint", faint);
 		this.cardEl.style.setProperty("--np-line", withAlpha(fg, 0.18));
 		this.cardEl.style.setProperty("--np-btn-bg", lighten(bg));
-		if (this.swatchEl) this.swatchEl.value = bg;
+		if (this.swatchEl) {
+			this.swatchEl.value = bg;
+			if (this.swatchEl.parentElement)
+				this.swatchEl.parentElement.style.backgroundColor = bg;
+		}
 		this.cardEl.toggleClass("np-empty", !this.current);
 	}
 
@@ -891,16 +896,18 @@ class NotepadSettingTab extends PluginSettingTab {
 					});
 			});
 
-		new Setting(containerEl)
+		const colorSetting = new Setting(containerEl)
 			.setName("Default note color")
-			.setDesc("Color used for newly created notes.")
-			.addColorPicker((c) => {
-				c.setValue(this.plugin.settings.defaultColor);
-				c.onChange(async (v) => {
-					this.plugin.settings.defaultColor = v;
-					await this.plugin.saveSettings();
-				});
-			});
+			.setDesc("Color used for newly created notes.");
+		const colorInput = makeColorSwatch(
+			colorSetting.controlEl,
+			this.plugin.settings.defaultColor,
+			async (v) => {
+				this.plugin.settings.defaultColor = v;
+				await this.plugin.saveSettings();
+			}
+		);
+		colorInput.title = "Default note color";
 	}
 
 	private allFolders(): string[] {
@@ -988,6 +995,31 @@ function serializeNote(note: NoteData): string {
 		.join("\n");
 
 	return fm + body + "\n";
+}
+
+/* ------------------------------------------------------------------ */
+/* Rounded color swatch (div chip + invisible color input overlay)     */
+/* ------------------------------------------------------------------ */
+
+// Native <input type="color"> won't clip its square fill to rounded corners
+// reliably, so we show a styled div and overlay a transparent color input.
+function makeColorSwatch(
+	parent: HTMLElement,
+	value: string,
+	onInput: (v: string) => void
+): HTMLInputElement {
+	const wrap = parent.createDiv({ cls: "np-swatch" });
+	wrap.style.backgroundColor = value;
+	const input = wrap.createEl("input", {
+		cls: "np-swatch-input",
+		attr: { type: "color" },
+	});
+	input.value = value;
+	input.oninput = () => {
+		wrap.style.backgroundColor = input.value;
+		onInput(input.value);
+	};
+	return input;
 }
 
 /* ------------------------------------------------------------------ */

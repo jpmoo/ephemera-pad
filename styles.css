@@ -75,28 +75,30 @@
 	box-shadow: none;
 }
 
-.notepad-root input.np-swatch {
-	-webkit-appearance: none;
-	appearance: none;
+/* Rounded color chip = styled div with an invisible color input on top.
+   Used in both the note toolbar and the settings tab. */
+.np-swatch {
+	position: relative;
 	width: 26px;
 	height: 24px;
-	padding: 0;
-	margin: 0;
-	border: none;
 	border-radius: 5px;
-	background: transparent;
-	cursor: pointer;
 	overflow: hidden;
+	cursor: pointer;
+	flex: 0 0 auto;
 	/* Inset ring follows the rounded corners — no square border */
-	box-shadow: inset 0 0 0 1px var(--np-line);
-	box-sizing: border-box;
+	box-shadow: inset 0 0 0 1px var(--np-line, rgba(127, 127, 127, 0.4));
 }
-.np-swatch::-webkit-color-swatch-wrapper {
+.np-swatch-input {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	margin: 0;
 	padding: 0;
-}
-.np-swatch::-webkit-color-swatch {
 	border: none;
-	border-radius: 4px;
+	background: transparent;
+	opacity: 0;
+	cursor: pointer;
 }
 
 /* Nav */
