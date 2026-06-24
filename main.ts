@@ -420,11 +420,10 @@ class NotepadView extends ItemView {
 			};
 		}
 
-		// If the line contains a valid =formula and isn't being edited, show a
-		// non-editable preview with the formulas rendered as result pills.
+		// If the line has rich content (links / formulas) and isn't being
+		// edited, show a non-editable preview with pills and clickable links.
 		const segs = parseInline(block.text);
-		const hasCalc = segs.some((s) => s.type === "calc");
-		if (hasCalc && this.activeLine !== i) {
+		if (hasRich(segs) && this.activeLine !== i) {
 			this.renderPreview(line, i, segs);
 			return;
 		}
@@ -450,7 +449,7 @@ class NotepadView extends ItemView {
 			// Collapse back to the pill preview once focus leaves the line.
 			if (!this.current) return;
 			const b = this.current.blocks[i];
-			if (!b || !parseInline(b.text).some((s) => s.type === "calc")) return;
+			if (!b || !hasRich(parseInline(b.text))) return;
 			window.setTimeout(() => {
 				if (this.activeLine === i && document.activeElement === text) return;
 				if (this.activeLine === i) this.activeLine = -1;
@@ -468,37 +467,69 @@ class NotepadView extends ItemView {
 		for (const seg of segs) {
 			if (seg.type === "text") {
 				if (seg.text) disp.createSpan({ text: seg.text });
-			} else {
+			} else if (seg.type === "calc") {
 				const pill = disp.createSpan({ cls: "np-pill" });
 				pill.setText(fmtNum(seg.value));
 				pill.onclick = (e) => {
 					e.stopPropagation();
 					this.activate(i, seg.srcEnd);
 				};
+			} else if (seg.type === "wiki") {
+				const a = disp.createSpan({ cls: "np-link np-link-internal" });
+				a.setText(seg.label);
+				a.setAttr("title", seg.target);
+				a.onclick = (e) => {
+					e.stopPropagation();
+					this.app.workspace.openLinkText(
+						seg.target,
+						this.currentFile?.path ?? "",
+						e.ctrlKey || e.metaKey
+					);
+				};
+			} else {
+				const a = disp.createSpan({ cls: "np-link np-link-external" });
+				a.setText(seg.href);
+				a.setAttr("title", seg.href);
+				a.onclick = (e) => {
+					e.stopPropagation();
+					window.open(seg.href, "_blank");
+				};
 			}
 		}
 		disp.onclick = () => this.activate(i);
 	}
 
-	// Expand the "/t" command into a timestamp when typed. Returns true if it
-	// handled the input (so the caller skips its normal update).
+	// Expand a slash command ("/t", "/[") when typed. Returns true if it handled
+	// the input (so the caller skips its normal update).
 	private maybeExpandCommand(text: HTMLElement, block: Block): boolean {
 		const raw = text.textContent || "";
 		const caret = getCaret(text);
 		const before = raw.slice(0, caret);
-		// Trigger only when "/t" stands alone (start of line or after whitespace).
-		if (!before.endsWith("/t")) return false;
+
+		let replacement: string | null = null;
+		if (before.endsWith("/t")) {
+			replacement = moment().format(
+				this.plugin.settings.timestampFormat || "YYYY-MM-DD HH:mm"
+			);
+		} else if (before.endsWith("/[")) {
+			const file = this.app.workspace.getActiveFile();
+			if (!file) {
+				new Notice("No active note to link to.");
+				return false;
+			}
+			replacement = `[[${file.basename}]]`;
+		}
+		if (replacement === null) return false;
+
+		// Trigger only when the command stands alone (line start or after space).
 		const preChar = before.charAt(before.length - 3);
 		if (preChar !== "" && !/\s/.test(preChar)) return false;
 
-		const stamp = moment().format(
-			this.plugin.settings.timestampFormat || "YYYY-MM-DD HH:mm"
-		);
-		const start = caret - 2;
-		const newText = raw.slice(0, start) + stamp + raw.slice(caret);
+		const start = caret - 2; // both commands are two characters
+		const newText = raw.slice(0, start) + replacement + raw.slice(caret);
 		block.text = newText;
 		text.setText(newText);
-		setCaret(text, start + stamp.length);
+		setCaret(text, start + replacement.length);
 		this.touch();
 		return true;
 	}
@@ -1042,36 +1073,81 @@ function fmtNum(n: number): string {
 
 type InlineSeg =
 	| { type: "text"; text: string }
-	| { type: "calc"; value: number; srcEnd: number };
+	| { type: "calc"; value: number; srcEnd: number }
+	| { type: "wiki"; target: string; label: string }
+	| { type: "url"; href: string };
 
-// Split a line into plain-text and =formula segments. A formula is `=` followed
-// by an arithmetic expression that parses to a finite number; anything else
-// (including a bare `=`) stays as text. Works anywhere in the line.
-const CALC_CHARS = "0-9.+\\-*/%()×÷\\s";
-const CALC_RE = new RegExp(`=([${CALC_CHARS}]+)`, "g");
+const CALC_AT = /^=([0-9.+\-*/%()×÷\s]+)/;
 
+// Split a line into plain text and "rich" segments: [[wikilinks]], http(s)
+// URLs, and =formula results. Everything else stays as text.
 function parseInline(text: string): InlineSeg[] {
 	const segs: InlineSeg[] = [];
-	let last = 0;
-	CALC_RE.lastIndex = 0;
-	let m: RegExpExecArray | null;
-	while ((m = CALC_RE.exec(text))) {
-		const expr = m[1].replace(/\s+$/, ""); // don't swallow trailing spaces
-		const value = expr === "" ? null : computeFormula("=" + expr);
-		if (value === null) {
-			// Not a valid formula — keep scanning just past this '='.
-			CALC_RE.lastIndex = m.index + 1;
-			continue;
+	let i = 0;
+	let textStart = 0;
+	const pushText = (end: number) => {
+		if (end > textStart)
+			segs.push({ type: "text", text: text.slice(textStart, end) });
+	};
+
+	while (i < text.length) {
+		// Wikilink: [[target]] or [[target|label]]
+		if (text[i] === "[" && text[i + 1] === "[") {
+			const close = text.indexOf("]]", i + 2);
+			if (close !== -1) {
+				const inner = text.slice(i + 2, close);
+				if (inner.length && !inner.includes("[")) {
+					const bar = inner.indexOf("|");
+					const target = (bar === -1 ? inner : inner.slice(0, bar)).trim();
+					const label = (bar === -1 ? inner : inner.slice(bar + 1)).trim();
+					pushText(i);
+					segs.push({ type: "wiki", target, label: label || target });
+					i = close + 2;
+					textStart = i;
+					continue;
+				}
+			}
 		}
-		const start = m.index;
-		const end = start + 1 + expr.length; // '=' + expression source
-		if (start > last) segs.push({ type: "text", text: text.slice(last, start) });
-		segs.push({ type: "calc", value, srcEnd: end });
-		last = end;
-		CALC_RE.lastIndex = end;
+
+		// URL: http:// or https:// up to whitespace, trailing punctuation trimmed
+		if (text.startsWith("http://", i) || text.startsWith("https://", i)) {
+			let j = i;
+			while (j < text.length && !/[\s<>]/.test(text[j])) j++;
+			while (j > i && /[.,;:!?'")\]]/.test(text[j - 1])) j--;
+			const scheme = text.startsWith("https://", i) ? 8 : 7;
+			if (j > i + scheme) {
+				pushText(i);
+				segs.push({ type: "url", href: text.slice(i, j) });
+				i = j;
+				textStart = i;
+				continue;
+			}
+		}
+
+		// Calc: =expression that evaluates to a finite number
+		if (text[i] === "=") {
+			const m = CALC_AT.exec(text.slice(i));
+			if (m) {
+				const expr = m[1].replace(/\s+$/, "");
+				const value = expr === "" ? null : computeFormula("=" + expr);
+				if (value !== null) {
+					pushText(i);
+					segs.push({ type: "calc", value, srcEnd: i + 1 + expr.length });
+					i += 1 + expr.length;
+					textStart = i;
+					continue;
+				}
+			}
+		}
+
+		i++;
 	}
-	if (last < text.length) segs.push({ type: "text", text: text.slice(last) });
+	pushText(text.length);
 	return segs;
+}
+
+function hasRich(segs: InlineSeg[]): boolean {
+	return segs.some((s) => s.type !== "text");
 }
 
 /* ------------------------------------------------------------------ */

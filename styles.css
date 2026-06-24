@@ -218,6 +218,24 @@
 	opacity: 0.85;
 }
 
+/* Clickable links inside the preview */
+.np-link {
+	color: var(--np-fg);
+	cursor: pointer;
+	text-underline-offset: 2px;
+	font-weight: 500;
+}
+.np-link-internal {
+	text-decoration: underline dashed;
+}
+.np-link-external {
+	text-decoration: underline solid;
+	word-break: break-all;
+}
+.np-link:hover {
+	opacity: 0.75;
+}
+
 .np-checked .np-display {
 	text-decoration: line-through;
 	opacity: 0.6;
@@ -225,6 +243,9 @@
 .np-checked .np-display .np-pill {
 	text-decoration: none;
 	opacity: 1;
+}
+.np-checked .np-display .np-link {
+	text-decoration-line: line-through underline;
 }
 
 .np-placeholder {
