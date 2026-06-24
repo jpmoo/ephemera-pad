@@ -24,7 +24,7 @@ interface NotepadSettings {
 }
 
 const DEFAULT_SETTINGS: NotepadSettings = {
-	folder: "Notepad",
+	folder: "Ephemera",
 	font: "",
 	defaultColor: "#ffe08a",
 };
@@ -233,7 +233,7 @@ class NotepadView extends ItemView {
 	/* ---- data loading ---- */
 
 	private get folderPath(): string {
-		return normalizePath(this.plugin.settings.folder || "Notepad");
+		return normalizePath(this.plugin.settings.folder || "Ephemera");
 	}
 
 	private async ensureFolder(): Promise<TFolder> {
