@@ -15,8 +15,8 @@ A little post-it notepad that lives in the Obsidian sidebar for quick notes.
 - **`/[` wikilink command.** Type `/[` to insert a `[[wikilink]]` to the currently active note (its title as the text).
 - **Clickable links.** `[[wikilinks]]` (dashed underline) open the linked note; `http(s)://` URLs (solid underline) open in your browser. Click anywhere else on the line to edit it.
 - **Per-note color** via a full color picker. The text color is derived automatically to stay readable *and* hue-matched — e.g. dark blue text on a light-blue note rather than plain black.
-- **Obscured create / edit timestamps** shown faintly at the top of each note.
-- **Configurable font** for note text (Settings → Sidebar Notepad).
+- **Obscured create / edit timestamps** shown faintly, centered along the bottom of each note (`+` created, `Δ` edited).
+- **Configurable font** for note text (Settings → Ephemera Pad).
 
 Notes are stored as ordinary Markdown files (lists/checklists are real Markdown; color + timestamps live in frontmatter), so they remain readable and editable outside the plugin.
 
