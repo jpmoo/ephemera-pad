@@ -1,7 +1,6 @@
 import {
 	App,
 	ItemView,
-	Menu,
 	Modal,
 	Notice,
 	Plugin,
@@ -10,6 +9,7 @@ import {
 	TFile,
 	TFolder,
 	WorkspaceLeaf,
+	moment,
 	normalizePath,
 } from "obsidian";
 
@@ -21,12 +21,14 @@ interface NotepadSettings {
 	folder: string;
 	font: string;
 	defaultColor: string;
+	timestampFormat: string;
 }
 
 const DEFAULT_SETTINGS: NotepadSettings = {
 	folder: "Ephemera",
 	font: "",
 	defaultColor: "#ffe08a",
+	timestampFormat: "YYYY-MM-DD HH:mm",
 };
 
 const VIEW_TYPE_NOTEPAD = "ephemera-pad-view";
@@ -427,6 +429,7 @@ class NotepadView extends ItemView {
 			this.updateToolbarState();
 		});
 		text.addEventListener("input", () => {
+			if (this.maybeExpandCommand(text, block)) return;
 			block.text = text.textContent || "";
 			this.touch();
 		});
@@ -463,6 +466,29 @@ class NotepadView extends ItemView {
 			}
 		}
 		disp.onclick = () => this.activate(i);
+	}
+
+	// Expand the "/t" command into a timestamp when typed. Returns true if it
+	// handled the input (so the caller skips its normal update).
+	private maybeExpandCommand(text: HTMLElement, block: Block): boolean {
+		const raw = text.textContent || "";
+		const caret = getCaret(text);
+		const before = raw.slice(0, caret);
+		// Trigger only when "/t" stands alone (start of line or after whitespace).
+		if (!before.endsWith("/t")) return false;
+		const preChar = before.charAt(before.length - 3);
+		if (preChar !== "" && !/\s/.test(preChar)) return false;
+
+		const stamp = moment().format(
+			this.plugin.settings.timestampFormat || "YYYY-MM-DD HH:mm"
+		);
+		const start = caret - 2;
+		const newText = raw.slice(0, start) + stamp + raw.slice(caret);
+		block.text = newText;
+		text.setText(newText);
+		setCaret(text, start + stamp.length);
+		this.touch();
+		return true;
 	}
 
 	// Switch a line into raw editable mode and place the caret.
@@ -797,6 +823,29 @@ class NotepadSettingTab extends PluginSettingTab {
 					this.plugin.settings.font = v;
 					await this.plugin.saveSettings();
 				});
+			});
+
+		new Setting(containerEl)
+			.setName("Timestamp format")
+			.setDesc(
+				"Format inserted by the /t command. Uses moment.js tokens (e.g. YYYY-MM-DD HH:mm, MMM D YYYY h:mm a)."
+			)
+			.addText((t) => {
+				t.setPlaceholder("YYYY-MM-DD HH:mm");
+				t.setValue(this.plugin.settings.timestampFormat);
+				t.onChange(async (v) => {
+					this.plugin.settings.timestampFormat = v;
+					await this.plugin.saveData(this.plugin.settings);
+				});
+			})
+			.addExtraButton((b) => {
+				b.setIcon("clock")
+					.setTooltip("Preview")
+					.onClick(() => {
+						const fmt =
+							this.plugin.settings.timestampFormat || "YYYY-MM-DD HH:mm";
+						new Notice(moment().format(fmt));
+					});
 			});
 
 		new Setting(containerEl)

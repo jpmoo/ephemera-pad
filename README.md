@@ -11,6 +11,7 @@ A little post-it notepad that lives in the Obsidian sidebar for quick notes.
 - **`+` / `−`** in the toolbar to add a new note on top, or delete the current one (with a confirmation dialog — deleted notes go to trash).
 - **Light formatting only:** bullet lists (`•`), numbered lists (`1.`), and checklists with real check-on/off boxes. Toolbar buttons toggle the focused line's type; `Enter` continues a list, `Enter` on an empty item or `Backspace` at line start exits it.
 - **Inline arithmetic.** Write `=expr` anywhere on any line — in plain text, bullets, numbered items, or checklists (e.g. `lunch =12.50*2`). Each formula renders as a result pill showing just the answer, in the note's complementary color. Click a pill to edit its formula; it recomputes when you click away. Supports `+ - * / %`, parentheses, and `×`/`÷`.
+- **`/t` timestamp command.** Type `/t` (at the start of a line or after a space) and it expands into the current date/time as plain text, using the format set in settings (moment.js tokens).
 - **Per-note color** via a full color picker. The text color is derived automatically to stay readable *and* hue-matched — e.g. dark blue text on a light-blue note rather than plain black.
 - **Obscured create / edit timestamps** shown faintly at the top of each note.
 - **Configurable font** for note text (Settings → Sidebar Notepad).
@@ -21,6 +22,7 @@ Notes are stored as ordinary Markdown files (lists/checklists are real Markdown;
 
 - **Notes folder** — vault folder where notes are created/deleted. Pick an existing folder or type a new path (it's created on first note).
 - **Font** — font family for note text (blank = Obsidian's text font).
+- **Timestamp format** — moment.js format string used by the `/t` command (default `YYYY-MM-DD HH:mm`).
 - **Default note color** — color used for newly created notes.
 
 ## Install (local / manual)
