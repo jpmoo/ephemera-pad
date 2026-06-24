@@ -179,20 +179,30 @@
 	opacity: 0.6;
 }
 
-/* Calculator result pill — complementary to the note background */
+/* Non-editable line preview (text with inline result pills) */
+.np-display {
+	flex: 1;
+	white-space: pre-wrap;
+	word-break: break-word;
+	min-height: 21px;
+	color: var(--np-fg);
+	cursor: text;
+}
+
+/* Inline calculator result pill — complementary to the note background */
 .np-pill {
 	display: inline-flex;
 	align-items: center;
-	align-self: flex-start;
 	background-color: var(--np-fg);
 	color: var(--np-bg);
 	border-radius: 999px;
-	padding: 1px 10px;
-	font-size: 13px;
+	padding: 0 7px;
+	margin: 0 1px;
+	font-size: 0.85em;
 	font-weight: 600;
 	font-variant-numeric: tabular-nums;
-	line-height: 1.5;
-	min-height: 21px;
+	line-height: 1.4;
+	vertical-align: baseline;
 	cursor: pointer;
 	user-select: none;
 	transition: opacity 100ms ease;
@@ -200,9 +210,14 @@
 .np-pill:hover {
 	opacity: 0.85;
 }
-.np-pill-error {
-	background-color: var(--np-line);
-	color: var(--np-fg);
+
+.np-checked .np-display {
+	text-decoration: line-through;
+	opacity: 0.6;
+}
+.np-checked .np-display .np-pill {
+	text-decoration: none;
+	opacity: 1;
 }
 
 .np-placeholder {

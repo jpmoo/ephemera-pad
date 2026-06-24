@@ -10,7 +10,7 @@ A little post-it notepad that lives in the Obsidian sidebar for quick notes.
 - **One note per "page"**, paged through with ◀ / ▶ and a `2 / 5` counter. Newest note is on top.
 - **`+` / `−`** in the toolbar to add a new note on top, or delete the current one (with a confirmation dialog — deleted notes go to trash).
 - **Light formatting only:** bullet lists (`•`), numbered lists (`1.`), and checklists with real check-on/off boxes. Toolbar buttons toggle the focused line's type; `Enter` continues a list, `Enter` on an empty item or `Backspace` at line start exits it.
-- **Inline arithmetic.** Start a line with `=` (e.g. `=2+2*3`) and it renders as a result pill (`= 8`) in the note's complementary color. Click the pill to expand it back to the editable formula; it recomputes when you click away. Supports `+ - * / %`, parentheses, and `×`/`÷`.
+- **Inline arithmetic.** Write `=expr` anywhere on any line — in plain text, bullets, numbered items, or checklists (e.g. `lunch =12.50*2`). Each formula renders as a result pill showing just the answer, in the note's complementary color. Click a pill to edit its formula; it recomputes when you click away. Supports `+ - * / %`, parentheses, and `×`/`÷`.
 - **Per-note color** via a full color picker. The text color is derived automatically to stay readable *and* hue-matched — e.g. dark blue text on a light-blue note rather than plain black.
 - **Obscured create / edit timestamps** shown faintly at the top of each note.
 - **Configurable font** for note text (Settings → Sidebar Notepad).

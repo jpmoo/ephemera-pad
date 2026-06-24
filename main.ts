@@ -382,10 +382,6 @@ class NotepadView extends ItemView {
 		if (line) this.fillLine(line, i);
 	}
 
-	private isCalc(block: Block): boolean {
-		return block.type === "p" && block.text.trim().startsWith("=");
-	}
-
 	private fillLine(line: HTMLElement, i: number) {
 		if (!this.current) return;
 		const block = this.current.blocks[i];
@@ -410,24 +406,16 @@ class NotepadView extends ItemView {
 			};
 		}
 
-		// Calc line, collapsed → show the result pill.
-		if (this.isCalc(block) && this.activeLine !== i) {
-			const res = computeFormula(block.text);
-			const pill = line.createDiv({
-				cls: "np-pill" + (res === null ? " np-pill-error" : ""),
-				attr: { title: "Click to edit formula" },
-			});
-			pill.setText(res === null ? "= ?" : `= ${fmtNum(res)}`);
-			pill.onclick = () => {
-				this.activeLine = i;
-				this.renderLine(i);
-				const t = this.textElAt(i);
-				if (t) setCaret(t, (t.textContent || "").length);
-			};
+		// If the line contains a valid =formula and isn't being edited, show a
+		// non-editable preview with the formulas rendered as result pills.
+		const segs = parseInline(block.text);
+		const hasCalc = segs.some((s) => s.type === "calc");
+		if (hasCalc && this.activeLine !== i) {
+			this.renderPreview(line, i, segs);
 			return;
 		}
 
-		// Editable text
+		// Editable raw text
 		const text = line.createDiv({
 			cls: "np-text",
 			attr: { contenteditable: "true", spellcheck: "true" },
@@ -444,16 +432,45 @@ class NotepadView extends ItemView {
 		});
 		text.addEventListener("keydown", (ev) => this.onEditorKey(ev, i, text));
 		text.addEventListener("blur", () => {
-			// Collapse a calc line back to its pill once focus leaves it.
+			// Collapse back to the pill preview once focus leaves the line.
 			if (!this.current) return;
 			const b = this.current.blocks[i];
-			if (!b || !this.isCalc(b)) return;
+			if (!b || !parseInline(b.text).some((s) => s.type === "calc")) return;
 			window.setTimeout(() => {
 				if (this.activeLine === i && document.activeElement === text) return;
 				if (this.activeLine === i) this.activeLine = -1;
 				this.renderLine(i);
 			}, 0);
 		});
+	}
+
+	// Non-editable rendering of a line: text spans with inline result pills.
+	private renderPreview(line: HTMLElement, i: number, segs: InlineSeg[]) {
+		const disp = line.createDiv({
+			cls: "np-display",
+			attr: { title: "Click to edit" },
+		});
+		for (const seg of segs) {
+			if (seg.type === "text") {
+				if (seg.text) disp.createSpan({ text: seg.text });
+			} else {
+				const pill = disp.createSpan({ cls: "np-pill" });
+				pill.setText(fmtNum(seg.value));
+				pill.onclick = (e) => {
+					e.stopPropagation();
+					this.activate(i, seg.srcEnd);
+				};
+			}
+		}
+		disp.onclick = () => this.activate(i);
+	}
+
+	// Switch a line into raw editable mode and place the caret.
+	private activate(i: number, caretPos?: number) {
+		this.activeLine = i;
+		this.renderLine(i);
+		const t = this.textElAt(i);
+		if (t) setCaret(t, caretPos ?? (t.textContent || "").length);
 	}
 
 	// Position of line i within its run of consecutive numbered items.
@@ -960,6 +977,40 @@ function computeFormula(raw: string): number | null {
 function fmtNum(n: number): string {
 	const r = Math.round(n * 1e10) / 1e10;
 	return String(r);
+}
+
+type InlineSeg =
+	| { type: "text"; text: string }
+	| { type: "calc"; value: number; srcEnd: number };
+
+// Split a line into plain-text and =formula segments. A formula is `=` followed
+// by an arithmetic expression that parses to a finite number; anything else
+// (including a bare `=`) stays as text. Works anywhere in the line.
+const CALC_CHARS = "0-9.+\\-*/%()×÷\\s";
+const CALC_RE = new RegExp(`=([${CALC_CHARS}]+)`, "g");
+
+function parseInline(text: string): InlineSeg[] {
+	const segs: InlineSeg[] = [];
+	let last = 0;
+	CALC_RE.lastIndex = 0;
+	let m: RegExpExecArray | null;
+	while ((m = CALC_RE.exec(text))) {
+		const expr = m[1].replace(/\s+$/, ""); // don't swallow trailing spaces
+		const value = expr === "" ? null : computeFormula("=" + expr);
+		if (value === null) {
+			// Not a valid formula — keep scanning just past this '='.
+			CALC_RE.lastIndex = m.index + 1;
+			continue;
+		}
+		const start = m.index;
+		const end = start + 1 + expr.length; // '=' + expression source
+		if (start > last) segs.push({ type: "text", text: text.slice(last, start) });
+		segs.push({ type: "calc", value, srcEnd: end });
+		last = end;
+		CALC_RE.lastIndex = end;
+	}
+	if (last < text.length) segs.push({ type: "text", text: text.slice(last) });
+	return segs;
 }
 
 /* ------------------------------------------------------------------ */
