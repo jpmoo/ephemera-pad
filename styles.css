@@ -67,6 +67,13 @@
 .notepad-root button.np-btn:active {
 	transform: translateY(1px);
 }
+.notepad-root button.np-btn.is-disabled,
+.notepad-root button.np-btn:disabled {
+	opacity: 0.3;
+	cursor: default;
+	pointer-events: none;
+	box-shadow: none;
+}
 
 .notepad-root input.np-swatch {
 	-webkit-appearance: none;

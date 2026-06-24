@@ -134,6 +134,8 @@ class NotepadView extends ItemView {
 	private editorEl!: HTMLElement;
 	private counterEl!: HTMLElement;
 	private swatchEl!: HTMLInputElement;
+	private prevBtn!: HTMLButtonElement;
+	private nextBtn!: HTMLButtonElement;
 
 	private saveTimer: number | null = null;
 	private lastFocusedIndex = -1;
@@ -218,9 +220,11 @@ class NotepadView extends ItemView {
 
 		// Nav row
 		const nav = this.cardEl.createDiv({ cls: "np-nav" });
-		mkBtn(nav, "◀", "Previous note", () => this.go(this.index - 1));
+		this.prevBtn = mkBtn(nav, "◀", "Previous note", () =>
+			this.go(this.index - 1)
+		);
 		this.counterEl = nav.createDiv({ cls: "np-counter" });
-		mkBtn(nav, "▶", "Next note", () => this.go(this.index + 1));
+		this.nextBtn = mkBtn(nav, "▶", "Next note", () => this.go(this.index + 1));
 
 		// Editor
 		this.editorEl = this.cardEl.createDiv({
@@ -329,6 +333,14 @@ class NotepadView extends ItemView {
 		this.counterEl.setText(
 			this.files.length ? `${this.index + 1} / ${this.files.length}` : "0 / 0"
 		);
+		// Dim the arrows when there's nowhere to page in that direction.
+		const atFirst = this.index <= 0 || this.files.length === 0;
+		const atLast =
+			this.index >= this.files.length - 1 || this.files.length === 0;
+		this.prevBtn.toggleClass("is-disabled", atFirst);
+		this.prevBtn.disabled = atFirst;
+		this.nextBtn.toggleClass("is-disabled", atLast);
+		this.nextBtn.disabled = atLast;
 	}
 
 	private renderMeta() {
