@@ -1,0 +1,9 @@
+{
+	"id": "ephemera",
+	"name": "Ephemera Pad",
+	"version": "1.0.0",
+	"minAppVersion": "1.4.0",
+	"description": "Post-it style sidebar pad for quick notes with bullet/number/checklist support, inline arithmetic, per-note colors, and auto-contrasting text.",
+	"author": "Jeff Moore",
+	"isDesktopOnly": false
+}
