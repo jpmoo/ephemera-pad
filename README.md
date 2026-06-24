@@ -4,6 +4,10 @@ A little post-it notepad that lives in the Obsidian sidebar for quick notes.
 
 > ⚡ **Vibe-coded.** This plugin was built conversationally with Claude Code — design decisions made on the fly, iterated by feel rather than spec. It works and it's tidy, but it hasn't been battle-tested. Use at your own risk, and back up your vault.
 
+<p align="center">
+  <img src="assets/screenshot.png" alt="Ephemera Pad note in the Obsidian sidebar" width="320">
+</p>
+
 ## Features
 
 - **Post-it notes in the sidebar.** Open from the ribbon (sticky-note icon) or the command palette ("Open Ephemera Pad").
