@@ -1,3 +1,9 @@
+/* Let our root own the spacing — drop Obsidian's default view padding
+   (which is uneven at the bottom in sidebar leaves). */
+.workspace-leaf-content[data-type="ephemera-pad-view"] .view-content {
+	padding: 0;
+}
+
 .notepad-root {
 	padding: 8px;
 	height: 100%;
