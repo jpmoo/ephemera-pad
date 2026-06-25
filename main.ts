@@ -713,10 +713,14 @@ class NotepadView extends ItemView {
 		block.text = newText;
 		this.activeLine = i;
 		this.touch();
+		// Rebuilding the line blurs the old editable element, which would
+		// schedule a collapse-to-preview that wipes the selection. Suppress it
+		// so the toggled text stays selected for repeated toggling.
+		this.selecting = true;
 		this.renderLine(i);
-
 		const el = this.textElAt(i);
 		if (el) setSelRange(el, newStart, newEnd);
+		window.setTimeout(() => (this.selecting = false), 0);
 	}
 
 	// Switch a line into raw editable mode and place the caret.
