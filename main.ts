@@ -45,6 +45,7 @@ interface Block {
 	type: BlockType;
 	checked?: boolean;
 	text: string;
+	start?: number; // explicit starting number for the first item of an ol run
 }
 
 interface NoteData {
@@ -582,6 +583,7 @@ class NotepadView extends ItemView {
 		const t = block.text;
 		let type: BlockType | null = null;
 		let checked: boolean | undefined;
+		let start: number | undefined;
 		let rest = "";
 
 		let m: RegExpMatchArray | null;
@@ -597,8 +599,14 @@ class NotepadView extends ItemView {
 		} else if (block.type === "p" && (m = t.match(/^[-*] /))) {
 			type = "ul";
 			rest = t.slice(m[0].length);
-		} else if (block.type === "p" && (m = t.match(/^(#|\d+\.) /))) {
+		} else if (block.type === "p" && (m = t.match(/^# /))) {
 			type = "ol";
+			start = 1;
+			rest = t.slice(m[0].length);
+		} else if (block.type === "p" && (m = t.match(/^(\d+)\. /))) {
+			// Start numbering at whatever number was typed (e.g. "3." -> 3).
+			type = "ol";
+			start = parseInt(m[1], 10);
 			rest = t.slice(m[0].length);
 		}
 
@@ -608,6 +616,7 @@ class NotepadView extends ItemView {
 
 		block.type = type;
 		block.checked = checked;
+		block.start = start;
 		block.text = rest;
 		this.activeLine = i;
 		this.touch();
@@ -656,12 +665,13 @@ class NotepadView extends ItemView {
 		if (t) setCaret(t, caretPos ?? (t.textContent || "").length);
 	}
 
-	// Position of line i within its run of consecutive numbered items.
+	// Number for line i: the run's first item's `start` (default 1) plus offset.
 	private olNumber(i: number): number {
 		if (!this.current) return 1;
-		let n = 0;
-		for (let j = i; j >= 0 && this.current.blocks[j].type === "ol"; j--) n++;
-		return n;
+		const blocks = this.current.blocks;
+		let j = i;
+		while (j > 0 && blocks[j - 1].type === "ol") j--;
+		return (blocks[j].start ?? 1) + (i - j);
 	}
 
 	// Highlight the list button matching the current line's type.
@@ -1103,8 +1113,8 @@ function parseBlocks(body: string): Block[] {
 		if ((m = line.match(/^[-*]\s+(.*)$/))) {
 			return { type: "ul", text: m[1] };
 		}
-		if ((m = line.match(/^\d+\.\s+(.*)$/))) {
-			return { type: "ol", text: m[1] };
+		if ((m = line.match(/^(\d+)\.\s+(.*)$/))) {
+			return { type: "ol", start: parseInt(m[1], 10), text: m[2] };
 		}
 		return { type: "p", text: line };
 	});
@@ -1125,13 +1135,19 @@ function serializeNote(note: NoteData): string {
 
 function serializeBody(blocks: Block[]): string {
 	let olCount = 0;
+	let inRun = false;
 	return blocks
 		.map((b) => {
 			if (b.type === "ol") {
-				olCount++;
+				if (!inRun) {
+					olCount = b.start ?? 1;
+					inRun = true;
+				} else {
+					olCount++;
+				}
 				return `${olCount}. ${b.text}`;
 			}
-			olCount = 0;
+			inRun = false;
 			if (b.type === "ul") return `- ${b.text}`;
 			if (b.type === "check") return `- [${b.checked ? "x" : " "}] ${b.text}`;
 			return b.text;
