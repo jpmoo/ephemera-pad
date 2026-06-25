@@ -223,16 +223,10 @@ class NotepadView extends ItemView {
 		mkBtn(mid, "B", "Bold", () => this.applyEmphasis("**")).addClass("np-b");
 		mkBtn(mid, "I", "Italic", () => this.applyEmphasis("*")).addClass("np-i");
 
-		const right = bar.createDiv({ cls: "np-bar-group np-bar-right" });
+		const right = bar.createDiv({ cls: "np-bar-group" });
 		this.sourceBtn = mkBtn(right, "</>", "Raw Markdown (select / copy)", () =>
 			this.toggleSource()
 		);
-		this.swatchEl = makeColorSwatch(
-			right,
-			this.plugin.settings.defaultColor,
-			(v) => this.setColor(v)
-		);
-		this.swatchEl.title = "Note color";
 
 		// Nav row
 		const nav = this.cardEl.createDiv({ cls: "np-nav" });
@@ -270,6 +264,15 @@ class NotepadView extends ItemView {
 
 		// Meta (obscured timestamps) — centered along the bottom edge.
 		this.metaEl = this.cardEl.createDiv({ cls: "np-meta" });
+
+		// Color picker tucked into the lower-right corner of the card.
+		this.swatchEl = makeColorSwatch(
+			this.cardEl,
+			this.plugin.settings.defaultColor,
+			(v) => this.setColor(v)
+		);
+		this.swatchEl.parentElement?.addClass("np-swatch-corner");
+		this.swatchEl.title = "Note color";
 	}
 
 	private toggleSource() {
