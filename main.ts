@@ -241,13 +241,37 @@ class NotepadView extends ItemView {
 			attr: { tabindex: "0" },
 		});
 
-		// When the selection spans multiple lines (e.g. after Ctrl/Cmd+A),
-		// copy clean Markdown for the whole selection rather than the per-line
-		// DOM text (which would include bullet glyphs etc.).
+		// Ctrl/Cmd+A selects the whole note. Handled in the capture phase at the
+		// container level so it works no matter which line (editable or rendered
+		// preview) currently has focus.
+		this.editorEl.addEventListener(
+			"keydown",
+			(e) => {
+				if ((e.metaKey || e.ctrlKey) && (e.key === "a" || e.key === "A")) {
+					e.preventDefault();
+					e.stopPropagation();
+					this.selectAll();
+				}
+			},
+			true
+		);
+
+		// When the selection spans multiple lines, copy clean Markdown for the
+		// whole selection rather than the per-line DOM text (which would include
+		// bullet glyphs etc.).
 		this.editorEl.addEventListener("copy", (e) => this.onCopy(e));
 
 		// Meta (obscured timestamps) — centered along the bottom edge.
 		this.metaEl = this.cardEl.createDiv({ cls: "np-meta" });
+	}
+
+	private selectAll() {
+		const sel = window.getSelection();
+		if (!sel) return;
+		const r = document.createRange();
+		r.selectNodeContents(this.editorEl);
+		sel.removeAllRanges();
+		sel.addRange(r);
 	}
 
 	private onCopy(e: ClipboardEvent) {
@@ -626,8 +650,8 @@ class NotepadView extends ItemView {
 		return true;
 	}
 
-	// Wrap the current selection (or insert at the caret) with a Markdown
-	// emphasis marker — "**" for bold, "*" for italic.
+	// Toggle a Markdown emphasis marker ("**" bold, "*" italic) on the current
+	// selection, or the word under the caret when nothing is selected.
 	private applyEmphasis(marker: string) {
 		if (!this.current) return;
 		const active = document.activeElement as HTMLElement | null;
@@ -639,22 +663,49 @@ class NotepadView extends ItemView {
 
 		const t = active.textContent || "";
 		const range = getSelRange(active);
-		const start = range ? range.start : t.length;
-		const end = range ? range.end : t.length;
-		const selected = t.slice(start, end);
+		let start = range ? range.start : getCaret(active);
+		let end = range ? range.end : start;
+		// No selection: act on the word under the caret.
+		if (start === end) {
+			while (start > 0 && !/\s/.test(t[start - 1])) start--;
+			while (end < t.length && !/\s/.test(t[end])) end++;
+		}
 
-		block.text =
-			t.slice(0, start) + marker + selected + marker + t.slice(end);
+		const m = marker.length;
+		const selected = t.slice(start, end);
+		let newText: string;
+		let newStart: number;
+		let newEnd: number;
+
+		if (t.slice(start - m, start) === marker && t.slice(end, end + m) === marker) {
+			// Markers sit just outside the selection → remove them.
+			newText = t.slice(0, start - m) + selected + t.slice(end + m);
+			newStart = start - m;
+			newEnd = end - m;
+		} else if (
+			selected.length >= 2 * m &&
+			selected.startsWith(marker) &&
+			selected.endsWith(marker)
+		) {
+			// Selection includes its own markers → strip them.
+			const inner = selected.slice(m, selected.length - m);
+			newText = t.slice(0, start) + inner + t.slice(end);
+			newStart = start;
+			newEnd = start + inner.length;
+		} else {
+			// Otherwise wrap.
+			newText = t.slice(0, start) + marker + selected + marker + t.slice(end);
+			newStart = start + m;
+			newEnd = end + m;
+		}
+
+		block.text = newText;
 		this.activeLine = i;
 		this.touch();
 		this.renderLine(i);
 
 		const el = this.textElAt(i);
-		if (el) {
-			const caret =
-				start === end ? start + marker.length : end + marker.length * 2;
-			setCaret(el, caret);
-		}
+		if (el) setSelRange(el, newStart, newEnd);
 	}
 
 	// Switch a line into raw editable mode and place the caret.
@@ -693,23 +744,6 @@ class NotepadView extends ItemView {
 		const caret = getCaret(el);
 		const len = (el.textContent || "").length;
 
-		// Ctrl/Cmd+A: first select the line, again to select the whole note.
-		if ((ev.metaKey || ev.ctrlKey) && (ev.key === "a" || ev.key === "A")) {
-			const sel = window.getSelection();
-			const lineSelected =
-				sel &&
-				!sel.isCollapsed &&
-				sel.toString().length >= (el.textContent || "").length &&
-				caret === len;
-			if (lineSelected || (el.textContent || "") === "") {
-				ev.preventDefault();
-				const r = document.createRange();
-				r.selectNodeContents(this.editorEl);
-				sel?.removeAllRanges();
-				sel?.addRange(r);
-			}
-			return; // otherwise let the browser select the current line
-		}
 
 		if (ev.key === "Enter" && !ev.shiftKey) {
 			ev.preventDefault();
@@ -1520,6 +1554,28 @@ function getSelRange(el: HTMLElement): { start: number; end: number } | null {
 	pre.setEnd(r.startContainer, r.startOffset);
 	const start = pre.toString().length;
 	return { start, end: start + r.toString().length };
+}
+
+// Select a character range within `el` (text-only content).
+function setSelRange(el: HTMLElement, start: number, end: number) {
+	if (start === end) {
+		setCaret(el, start);
+		return;
+	}
+	el.focus();
+	const sel = window.getSelection();
+	if (!sel) return;
+	const node = el.firstChild;
+	const range = document.createRange();
+	if (node && node.nodeType === Node.TEXT_NODE) {
+		const len = node.textContent?.length || 0;
+		range.setStart(node, Math.min(start, len));
+		range.setEnd(node, Math.min(end, len));
+	} else {
+		range.selectNodeContents(el);
+	}
+	sel.removeAllRanges();
+	sel.addRange(range);
 }
 
 function setCaret(el: HTMLElement, pos: number) {
