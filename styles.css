@@ -8,6 +8,7 @@
 	padding: 8px;
 	height: 100%;
 	overflow: hidden;
+	box-sizing: border-box;
 }
 
 .np-card {
