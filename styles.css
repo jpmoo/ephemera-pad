@@ -33,7 +33,7 @@
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: center;
-	gap: 5px;
+	gap: 10px; /* space between button groups */
 	margin-bottom: 3px;
 }
 .np-bar-group {
@@ -119,42 +119,40 @@
 	cursor: pointer;
 }
 
-/* Color picker tucked into the card's lower-right corner */
-.np-swatch.np-swatch-corner {
-	position: absolute;
-	right: 8px;
-	bottom: 7px;
-	width: 20px;
-	height: 16px;
-	z-index: 2;
-}
-
-/* Nav */
-.np-nav {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	gap: 8px;
-	margin-bottom: 2px;
-}
+/* Paginator counter (row 1) */
 .np-counter {
 	font-size: 11px;
 	letter-spacing: 0.04em;
 	color: var(--np-fg-faint);
-	min-width: 42px;
+	min-width: 38px;
 	text-align: center;
 }
 
-/* Obscured timestamps — centered along the bottom edge */
+/* Bottom row: timestamps on the left, color swatch on the right */
+.np-foot {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin-top: 8px;
+	padding-top: 6px;
+	border-top: 1px solid var(--np-line);
+}
+.np-foot .np-swatch {
+	width: 22px;
+	height: 16px;
+	border-radius: 4px;
+}
+
+/* Obscured timestamps */
 .np-meta {
 	font-size: 10px;
 	letter-spacing: 0.02em;
 	color: var(--np-fg-faint);
 	font-style: italic;
-	text-align: center;
-	margin-top: 8px;
-	padding: 6px 26px 0;
-	border-top: 1px solid var(--np-line);
+	text-align: left;
+	flex: 1;
+	min-width: 0;
 	user-select: none;
 }
 
@@ -306,12 +304,12 @@
 }
 
 /* Formatting buttons don't apply in raw mode */
-.np-card.np-source-mode .np-bar-group:nth-child(2) {
+.np-card.np-source-mode .np-fmt {
 	opacity: 0.4;
 	pointer-events: none;
 }
 
-.np-empty .np-bar .np-bar-group:nth-child(2) {
+.np-empty .np-fmt {
 	opacity: 0.4;
 	pointer-events: none;
 }

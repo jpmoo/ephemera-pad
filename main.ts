@@ -183,9 +183,6 @@ class NotepadView extends ItemView {
 
 		this.cardEl = root.createDiv({ cls: "np-card" });
 
-		// Toolbar row: + - | lists | color | nav
-		const bar = this.cardEl.createDiv({ cls: "np-bar" });
-
 		const mkBtn = (
 			parent: HTMLElement,
 			icon: string,
@@ -203,38 +200,44 @@ class NotepadView extends ItemView {
 			};
 			return b;
 		};
+		const group = (parent: HTMLElement) =>
+			parent.createDiv({ cls: "np-bar-group" });
 
-		const left = bar.createDiv({ cls: "np-bar-group" });
-		mkBtn(left, "+", "New note", () => this.addNote());
-		this.delBtn = mkBtn(left, "−", "Delete this note", () =>
+		// Row 1: + −   |   ◀ 1/1 ▶
+		const row1 = this.cardEl.createDiv({ cls: "np-bar" });
+		const actions = group(row1);
+		mkBtn(actions, "+", "New note", () => this.addNote());
+		this.delBtn = mkBtn(actions, "−", "Delete this note", () =>
 			this.confirmDelete()
 		);
-
-		const mid = bar.createDiv({ cls: "np-bar-group" });
-		this.listBtns.ul = mkBtn(mid, "•", "Bullet list", () =>
-			this.setBlockType("ul")
-		);
-		this.listBtns.ol = mkBtn(mid, "1.", "Numbered list", () =>
-			this.setBlockType("ol")
-		);
-		this.listBtns.check = mkBtn(mid, "✓", "Checklist", () =>
-			this.setBlockType("check")
-		);
-		mkBtn(mid, "B", "Bold", () => this.applyEmphasis("**")).addClass("np-b");
-		mkBtn(mid, "I", "Italic", () => this.applyEmphasis("*")).addClass("np-i");
-
-		const right = bar.createDiv({ cls: "np-bar-group" });
-		this.sourceBtn = mkBtn(right, "</>", "Raw Markdown (select / copy)", () =>
-			this.toggleSource()
-		);
-
-		// Nav row
-		const nav = this.cardEl.createDiv({ cls: "np-nav" });
+		const nav = group(row1);
 		this.prevBtn = mkBtn(nav, "◀", "Previous note", () =>
 			this.go(this.index - 1)
 		);
 		this.counterEl = nav.createDiv({ cls: "np-counter" });
 		this.nextBtn = mkBtn(nav, "▶", "Next note", () => this.go(this.index + 1));
+
+		// Row 2: B I   |   • 1. ✓   |   </>
+		const row2 = this.cardEl.createDiv({ cls: "np-bar" });
+		const emph = group(row2);
+		emph.addClass("np-fmt");
+		mkBtn(emph, "B", "Bold", () => this.applyEmphasis("**")).addClass("np-b");
+		mkBtn(emph, "I", "Italic", () => this.applyEmphasis("*")).addClass("np-i");
+		const lists = group(row2);
+		lists.addClass("np-fmt");
+		this.listBtns.ul = mkBtn(lists, "•", "Bullet list", () =>
+			this.setBlockType("ul")
+		);
+		this.listBtns.ol = mkBtn(lists, "1.", "Numbered list", () =>
+			this.setBlockType("ol")
+		);
+		this.listBtns.check = mkBtn(lists, "✓", "Checklist", () =>
+			this.setBlockType("check")
+		);
+		const raw = group(row2);
+		this.sourceBtn = mkBtn(raw, "</>", "Raw Markdown (select / copy)", () =>
+			this.toggleSource()
+		);
 
 		// Editor
 		this.editorEl = this.cardEl.createDiv({
@@ -262,16 +265,14 @@ class NotepadView extends ItemView {
 		// bullet glyphs etc.).
 		this.editorEl.addEventListener("copy", (e) => this.onCopy(e));
 
-		// Meta (obscured timestamps) — centered along the bottom edge.
-		this.metaEl = this.cardEl.createDiv({ cls: "np-meta" });
-
-		// Color picker tucked into the lower-right corner of the card.
+		// Bottom row: obscured timestamps on the left, color swatch on the right.
+		const foot = this.cardEl.createDiv({ cls: "np-foot" });
+		this.metaEl = foot.createDiv({ cls: "np-meta" });
 		this.swatchEl = makeColorSwatch(
-			this.cardEl,
+			foot,
 			this.plugin.settings.defaultColor,
 			(v) => this.setColor(v)
 		);
-		this.swatchEl.parentElement?.addClass("np-swatch-corner");
 		this.swatchEl.title = "Note color";
 	}
 
