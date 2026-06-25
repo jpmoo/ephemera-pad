@@ -144,6 +144,7 @@ class NotepadView extends ItemView {
 	private saveTimer: number | null = null;
 	private lastFocusedIndex = -1;
 	private activeLine = -1; // line currently being edited (calc lines expand here)
+	private selecting = false; // true while a whole-note selection is being made
 	private listBtns: Partial<Record<BlockType, HTMLButtonElement>> = {};
 
 	constructor(leaf: WorkspaceLeaf, plugin: NotepadPlugin) {
@@ -266,12 +267,21 @@ class NotepadView extends ItemView {
 	}
 
 	private selectAll() {
+		// A selection can't span multiple focused contenteditables, so move
+		// focus to the (non-editable) editor container first. Guard the blur so
+		// it doesn't re-render the line and wipe the selection we're making.
+		this.selecting = true;
+		const active = document.activeElement as HTMLElement | null;
+		if (active && active.classList.contains("np-text")) active.blur();
+		this.editorEl.focus();
 		const sel = window.getSelection();
-		if (!sel) return;
-		const r = document.createRange();
-		r.selectNodeContents(this.editorEl);
-		sel.removeAllRanges();
-		sel.addRange(r);
+		if (sel) {
+			const r = document.createRange();
+			r.selectNodeContents(this.editorEl);
+			sel.removeAllRanges();
+			sel.addRange(r);
+		}
+		window.setTimeout(() => (this.selecting = false), 0);
 	}
 
 	private onCopy(e: ClipboardEvent) {
@@ -513,10 +523,11 @@ class NotepadView extends ItemView {
 		text.addEventListener("keydown", (ev) => this.onEditorKey(ev, i, text));
 		text.addEventListener("blur", () => {
 			// Collapse back to the pill preview once focus leaves the line.
-			if (!this.current) return;
+			if (!this.current || this.selecting) return;
 			const b = this.current.blocks[i];
 			if (!b || !hasRich(parseInline(b.text))) return;
 			window.setTimeout(() => {
+				if (this.selecting) return;
 				if (this.activeLine === i && document.activeElement === text) return;
 				if (this.activeLine === i) this.activeLine = -1;
 				this.renderLine(i);
