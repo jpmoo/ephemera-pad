@@ -275,6 +275,32 @@
 	text-align: center;
 }
 
+/* Raw Markdown view — a single plain textarea (native selection/copy) */
+.np-source {
+	width: 100%;
+	height: 100%;
+	box-sizing: border-box;
+	border: none;
+	outline: none;
+	resize: none;
+	padding: 0;
+	margin: 0;
+	background: transparent;
+	color: var(--np-fg);
+	caret-color: var(--np-fg);
+	font-family: var(--np-font);
+	font-size: var(--np-font-size, 14px);
+	line-height: 1.5;
+	white-space: pre-wrap;
+	tab-size: 2;
+}
+
+/* Formatting buttons don't apply in raw mode */
+.np-card.np-source-mode .np-bar-group:nth-child(2) {
+	opacity: 0.4;
+	pointer-events: none;
+}
+
 .np-empty .np-bar .np-bar-group:nth-child(2) {
 	opacity: 0.4;
 	pointer-events: none;

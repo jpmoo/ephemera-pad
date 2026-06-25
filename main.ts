@@ -145,6 +145,9 @@ class NotepadView extends ItemView {
 	private lastFocusedIndex = -1;
 	private activeLine = -1; // line currently being edited (calc lines expand here)
 	private selecting = false; // true while a whole-note selection is being made
+	private sourceMode = false; // raw Markdown textarea view
+	private sourceEl: HTMLTextAreaElement | null = null;
+	private sourceBtn!: HTMLButtonElement;
 	private listBtns: Partial<Record<BlockType, HTMLButtonElement>> = {};
 
 	constructor(leaf: WorkspaceLeaf, plugin: NotepadPlugin) {
@@ -221,6 +224,9 @@ class NotepadView extends ItemView {
 		mkBtn(mid, "I", "Italic", () => this.applyEmphasis("*")).addClass("np-i");
 
 		const right = bar.createDiv({ cls: "np-bar-group np-bar-right" });
+		this.sourceBtn = mkBtn(right, "</>", "Raw Markdown (select / copy)", () =>
+			this.toggleSource()
+		);
 		this.swatchEl = makeColorSwatch(
 			right,
 			this.plugin.settings.defaultColor,
@@ -266,22 +272,28 @@ class NotepadView extends ItemView {
 		this.metaEl = this.cardEl.createDiv({ cls: "np-meta" });
 	}
 
+	private toggleSource() {
+		this.setSourceMode(!this.sourceMode);
+	}
+
+	private setSourceMode(on: boolean) {
+		if (this.sourceMode === on) return;
+		this.sourceMode = on;
+		this.cardEl.toggleClass("np-source-mode", on);
+		this.renderEditor(on ? undefined : 0);
+		if (on && this.sourceEl) this.sourceEl.focus();
+		this.updateToolbarState();
+	}
+
+	// Per-line contenteditables can't share one selection, so "select the whole
+	// note" switches to raw Markdown mode and selects all of it there.
 	private selectAll() {
-		// A selection can't span multiple focused contenteditables, so move
-		// focus to the (non-editable) editor container first. Guard the blur so
-		// it doesn't re-render the line and wipe the selection we're making.
-		this.selecting = true;
-		const active = document.activeElement as HTMLElement | null;
-		if (active && active.classList.contains("np-text")) active.blur();
-		this.editorEl.focus();
-		const sel = window.getSelection();
-		if (sel) {
-			const r = document.createRange();
-			r.selectNodeContents(this.editorEl);
-			sel.removeAllRanges();
-			sel.addRange(r);
+		if (!this.current) return;
+		this.setSourceMode(true);
+		if (this.sourceEl) {
+			this.sourceEl.focus();
+			this.sourceEl.select();
 		}
-		window.setTimeout(() => (this.selecting = false), 0);
 	}
 
 	private onCopy(e: ClipboardEvent) {
@@ -432,10 +444,31 @@ class NotepadView extends ItemView {
 
 	private renderEditor(focusIndex?: number, caretPos?: number) {
 		this.editorEl.empty();
+		this.sourceEl = null;
 
 		if (!this.current) {
 			const empty = this.editorEl.createDiv({ cls: "np-placeholder" });
 			empty.setText("No notes yet. Press + to create one.");
+			return;
+		}
+
+		// Raw Markdown view: one plain textarea — native select/drag/copy/edit.
+		if (this.sourceMode) {
+			const ta = this.editorEl.createEl("textarea", {
+				cls: "np-source",
+				attr: { spellcheck: "false" },
+			});
+			ta.value = serializeBody(this.current.blocks);
+			ta.addEventListener("input", () => {
+				if (!this.current) return;
+				const blocks = parseBlocks(ta.value);
+				this.current.blocks = blocks.length
+					? blocks
+					: [{ type: "p", text: "" }];
+				this.touch();
+			});
+			this.sourceEl = ta;
+			this.updateToolbarState();
 			return;
 		}
 
@@ -664,7 +697,7 @@ class NotepadView extends ItemView {
 	// Toggle a Markdown emphasis marker ("**" bold, "*" italic) on the current
 	// selection, or the word under the caret when nothing is selected.
 	private applyEmphasis(marker: string) {
-		if (!this.current) return;
+		if (this.sourceMode || !this.current) return;
 		const active = document.activeElement as HTMLElement | null;
 		if (!active || !active.classList.contains("np-text")) return;
 		const line = active.closest(".np-line") as HTMLElement | null;
@@ -742,7 +775,8 @@ class NotepadView extends ItemView {
 
 	// Highlight the list button matching the current line's type.
 	private updateToolbarState() {
-		const i = this.focusedBlockIndex();
+		this.sourceBtn?.toggleClass("is-active", this.sourceMode);
+		const i = this.sourceMode ? -1 : this.focusedBlockIndex();
 		const type =
 			i >= 0 && this.current ? this.current.blocks[i].type : null;
 		(["ul", "ol", "check"] as BlockType[]).forEach((t) => {
@@ -854,6 +888,7 @@ class NotepadView extends ItemView {
 	}
 
 	private setBlockType(type: BlockType) {
+		if (this.sourceMode) return;
 		if (!this.current || !this.current.blocks.length) return;
 		let i = this.focusedBlockIndex();
 		if (i < 0) i = 0;
