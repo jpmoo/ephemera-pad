@@ -80,6 +80,21 @@
 	pointer-events: none;
 	box-shadow: none;
 }
+.notepad-root button.np-btn.np-b {
+	font-weight: 900;
+}
+.notepad-root button.np-btn.np-i {
+	font-style: italic;
+	font-family: Georgia, serif;
+}
+
+/* Emphasis in the rendered preview */
+.np-display strong {
+	font-weight: 700;
+}
+.np-display em {
+	font-style: italic;
+}
 
 /* Rounded color chip = styled div with an invisible color input on top.
    Used in both the note toolbar and the settings tab. */

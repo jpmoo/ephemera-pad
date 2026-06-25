@@ -138,6 +138,7 @@ class NotepadView extends ItemView {
 	private swatchEl!: HTMLInputElement;
 	private prevBtn!: HTMLButtonElement;
 	private nextBtn!: HTMLButtonElement;
+	private delBtn!: HTMLButtonElement;
 
 	private saveTimer: number | null = null;
 	private lastFocusedIndex = -1;
@@ -200,7 +201,9 @@ class NotepadView extends ItemView {
 
 		const left = bar.createDiv({ cls: "np-bar-group" });
 		mkBtn(left, "+", "New note", () => this.addNote());
-		mkBtn(left, "−", "Delete this note", () => this.confirmDelete());
+		this.delBtn = mkBtn(left, "−", "Delete this note", () =>
+			this.confirmDelete()
+		);
 
 		const mid = bar.createDiv({ cls: "np-bar-group" });
 		this.listBtns.ul = mkBtn(mid, "•", "Bullet list", () =>
@@ -212,6 +215,8 @@ class NotepadView extends ItemView {
 		this.listBtns.check = mkBtn(mid, "✓", "Checklist", () =>
 			this.setBlockType("check")
 		);
+		mkBtn(mid, "B", "Bold", () => this.applyEmphasis("**")).addClass("np-b");
+		mkBtn(mid, "I", "Italic", () => this.applyEmphasis("*")).addClass("np-i");
 
 		const right = bar.createDiv({ cls: "np-bar-group np-bar-right" });
 		this.swatchEl = makeColorSwatch(
@@ -235,8 +240,30 @@ class NotepadView extends ItemView {
 			attr: { tabindex: "0" },
 		});
 
+		// When the selection spans multiple lines (e.g. after Ctrl/Cmd+A),
+		// copy clean Markdown for the whole selection rather than the per-line
+		// DOM text (which would include bullet glyphs etc.).
+		this.editorEl.addEventListener("copy", (e) => this.onCopy(e));
+
 		// Meta (obscured timestamps) — centered along the bottom edge.
 		this.metaEl = this.cardEl.createDiv({ cls: "np-meta" });
+	}
+
+	private onCopy(e: ClipboardEvent) {
+		if (!this.current) return;
+		const sel = window.getSelection();
+		if (!sel || sel.isCollapsed) return;
+		const idxs: number[] = [];
+		this.editorEl.querySelectorAll(".np-line").forEach((line) => {
+			const el = line as HTMLElement;
+			if (sel.containsNode(el, true) && el.dataset.index)
+				idxs.push(parseInt(el.dataset.index));
+		});
+		if (idxs.length <= 1) return; // single line: let the browser handle it
+		idxs.sort((a, b) => a - b);
+		const blocks = idxs.map((i) => this.current!.blocks[i]);
+		e.clipboardData?.setData("text/plain", serializeBody(blocks));
+		e.preventDefault();
 	}
 
 	/* ---- data loading ---- */
@@ -350,6 +377,10 @@ class NotepadView extends ItemView {
 		this.prevBtn.disabled = atFirst;
 		this.nextBtn.toggleClass("is-disabled", atLast);
 		this.nextBtn.disabled = atLast;
+		// Nothing to delete when there are no notes.
+		const noNotes = this.files.length === 0;
+		this.delBtn.toggleClass("is-disabled", noNotes);
+		this.delBtn.disabled = noNotes;
 	}
 
 	private renderMeta() {
@@ -451,6 +482,7 @@ class NotepadView extends ItemView {
 		text.addEventListener("input", () => {
 			if (this.maybeExpandCommand(text, block)) return;
 			block.text = text.textContent || "";
+			if (this.maybeAutoFormat(text, block, i)) return;
 			this.touch();
 		});
 		text.addEventListener("keydown", (ev) => this.onEditorKey(ev, i, text));
@@ -475,7 +507,7 @@ class NotepadView extends ItemView {
 		});
 		for (const seg of segs) {
 			if (seg.type === "text") {
-				if (seg.text) disp.createSpan({ text: seg.text });
+				if (seg.text) renderEmphasis(disp, seg.text);
 			} else if (seg.type === "calc") {
 				const pill = disp.createSpan({ cls: "np-pill" });
 				pill.setText(fmtNum(seg.value));
@@ -543,6 +575,79 @@ class NotepadView extends ItemView {
 		return true;
 	}
 
+	// Auto-convert a line into a list when it begins with a shorthand marker
+	// and the user just typed the trailing space. Returns true if it converted.
+	private maybeAutoFormat(el: HTMLElement, block: Block, i: number): boolean {
+		const caret = getCaret(el);
+		const t = block.text;
+		let type: BlockType | null = null;
+		let checked: boolean | undefined;
+		let rest = "";
+
+		let m: RegExpMatchArray | null;
+		if ((m = t.match(/^([-*]) \[([ xX])\] /))) {
+			type = "check";
+			checked = m[2].toLowerCase() === "x";
+			rest = t.slice(m[0].length);
+		} else if (block.type === "ul" && (m = t.match(/^\[([ xX])\] /))) {
+			// "- " already became a bullet; "[ ] " upgrades it to a checkbox.
+			type = "check";
+			checked = m[1].toLowerCase() === "x";
+			rest = t.slice(m[0].length);
+		} else if (block.type === "p" && (m = t.match(/^[-*] /))) {
+			type = "ul";
+			rest = t.slice(m[0].length);
+		} else if (block.type === "p" && (m = t.match(/^(#|\d+\.) /))) {
+			type = "ol";
+			rest = t.slice(m[0].length);
+		}
+
+		if (type === null || !m) return false;
+		// Only when the caret is right after the marker (i.e. the just-typed space).
+		if (caret !== m[0].length) return false;
+
+		block.type = type;
+		block.checked = checked;
+		block.text = rest;
+		this.activeLine = i;
+		this.touch();
+		this.renderLine(i);
+		const t2 = this.textElAt(i);
+		if (t2) setCaret(t2, 0);
+		return true;
+	}
+
+	// Wrap the current selection (or insert at the caret) with a Markdown
+	// emphasis marker — "**" for bold, "*" for italic.
+	private applyEmphasis(marker: string) {
+		if (!this.current) return;
+		const active = document.activeElement as HTMLElement | null;
+		if (!active || !active.classList.contains("np-text")) return;
+		const line = active.closest(".np-line") as HTMLElement | null;
+		if (!line?.dataset.index) return;
+		const i = parseInt(line.dataset.index);
+		const block = this.current.blocks[i];
+
+		const t = active.textContent || "";
+		const range = getSelRange(active);
+		const start = range ? range.start : t.length;
+		const end = range ? range.end : t.length;
+		const selected = t.slice(start, end);
+
+		block.text =
+			t.slice(0, start) + marker + selected + marker + t.slice(end);
+		this.activeLine = i;
+		this.touch();
+		this.renderLine(i);
+
+		const el = this.textElAt(i);
+		if (el) {
+			const caret =
+				start === end ? start + marker.length : end + marker.length * 2;
+			setCaret(el, caret);
+		}
+	}
+
 	// Switch a line into raw editable mode and place the caret.
 	private activate(i: number, caretPos?: number) {
 		this.activeLine = i;
@@ -577,6 +682,24 @@ class NotepadView extends ItemView {
 		const block = blocks[i];
 		const caret = getCaret(el);
 		const len = (el.textContent || "").length;
+
+		// Ctrl/Cmd+A: first select the line, again to select the whole note.
+		if ((ev.metaKey || ev.ctrlKey) && (ev.key === "a" || ev.key === "A")) {
+			const sel = window.getSelection();
+			const lineSelected =
+				sel &&
+				!sel.isCollapsed &&
+				sel.toString().length >= (el.textContent || "").length &&
+				caret === len;
+			if (lineSelected || (el.textContent || "") === "") {
+				ev.preventDefault();
+				const r = document.createRange();
+				r.selectNodeContents(this.editorEl);
+				sel?.removeAllRanges();
+				sel?.addRange(r);
+			}
+			return; // otherwise let the browser select the current line
+		}
 
 		if (ev.key === "Enter" && !ev.shiftKey) {
 			ev.preventDefault();
@@ -997,8 +1120,12 @@ function serializeNote(note: NoteData): string {
 		"",
 	].join("\n");
 
+	return fm + serializeBody(note.blocks) + "\n";
+}
+
+function serializeBody(blocks: Block[]): string {
 	let olCount = 0;
-	const body = note.blocks
+	return blocks
 		.map((b) => {
 			if (b.type === "ol") {
 				olCount++;
@@ -1010,8 +1137,6 @@ function serializeNote(note: NoteData): string {
 			return b.text;
 		})
 		.join("\n");
-
-	return fm + body + "\n";
 }
 
 /* ------------------------------------------------------------------ */
@@ -1195,8 +1320,28 @@ function parseInline(text: string): InlineSeg[] {
 	return segs;
 }
 
+// Matches **bold**, *italic*, or _italic_ (non-global, for testing).
+const EMPH_TEST = /\*\*[^*]+\*\*|\*[^*\s][^*]*\*|_[^_\s][^_]*_/;
+
 function hasRich(segs: InlineSeg[]): boolean {
-	return segs.some((s) => s.type !== "text");
+	return segs.some(
+		(s) => s.type !== "text" || EMPH_TEST.test(s.text)
+	);
+}
+
+// Render a text run, turning Markdown emphasis into <strong>/<em>.
+function renderEmphasis(parent: HTMLElement, text: string) {
+	const re = /\*\*([^*]+)\*\*|\*([^*\s][^*]*)\*|_([^_\s][^_]*)_/g;
+	let last = 0;
+	let m: RegExpExecArray | null;
+	while ((m = re.exec(text))) {
+		if (m.index > last)
+			parent.createSpan({ text: text.slice(last, m.index) });
+		if (m[1] !== undefined) parent.createEl("strong", { text: m[1] });
+		else parent.createEl("em", { text: (m[2] ?? m[3]) as string });
+		last = re.lastIndex;
+	}
+	if (last < text.length) parent.createSpan({ text: text.slice(last) });
 }
 
 /* ------------------------------------------------------------------ */
@@ -1345,6 +1490,20 @@ function getSelLen(): number {
 	const sel = window.getSelection();
 	if (!sel || sel.rangeCount === 0) return 0;
 	return sel.toString().length;
+}
+
+// Selection start/end as character offsets within `el` (text-only content).
+function getSelRange(el: HTMLElement): { start: number; end: number } | null {
+	const sel = window.getSelection();
+	if (!sel || sel.rangeCount === 0) return null;
+	const r = sel.getRangeAt(0);
+	if (!el.contains(r.startContainer) || !el.contains(r.endContainer))
+		return null;
+	const pre = r.cloneRange();
+	pre.selectNodeContents(el);
+	pre.setEnd(r.startContainer, r.startOffset);
+	const start = pre.toString().length;
+	return { start, end: start + r.toString().length };
 }
 
 function setCaret(el: HTMLElement, pos: number) {

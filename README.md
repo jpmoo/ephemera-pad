@@ -13,7 +13,9 @@ A little post-it notepad that lives in the Obsidian sidebar for quick notes.
 - **Post-it notes in the sidebar.** Open from the ribbon (sticky-note icon) or the command palette ("Open Ephemera Pad").
 - **One note per "page"**, paged through with ◀ / ▶ and a `2 / 5` counter. Newest note is on top.
 - **`+` / `−`** in the toolbar to add a new note on top, or delete the current one (with a confirmation dialog — deleted notes go to trash).
-- **Light formatting only:** bullet lists (`•`), numbered lists (`1.`), and checklists with real check-on/off boxes. Toolbar buttons toggle the focused line's type; `Enter` continues a list, `Enter` on an empty item or `Backspace` at line start exits it.
+- **Light formatting only:** bullet lists (`•`), numbered lists (`1.`), checklists with real check-on/off boxes, plus **bold** and *italic*. Toolbar buttons toggle the focused line's type and wrap the selection in `**`/`*`. `Enter` continues a list, `Enter` on an empty item or `Backspace` at line start exits it.
+- **List shorthands:** start a line with `- ` or `* ` for a bullet, `# ` (or `1. `) for a numbered item, and `- [ ] ` for a checkbox — they convert automatically as you type.
+- **Select all:** `Ctrl/Cmd+A` selects the current line, again to select the whole note; copying a multi-line selection yields clean Markdown.
 - **Inline arithmetic.** Write `=expr` anywhere on any line — in plain text, bullets, numbered items, or checklists (e.g. `lunch =12.50*2`). Each formula renders as a result pill showing just the answer, in the note's complementary color. Click a pill to edit its formula; it recomputes when you click away. Supports `+ - * / %`, parentheses, and `×`/`÷`.
 - **`/t` timestamp command.** Type `/t` (at the start of a line or after a space) and it expands into the current date/time as plain text, using the format set in settings (moment.js tokens).
 - **`/[` wikilink command.** Type `/[` to insert a `[[wikilink]]` to the currently active note (its title as the text).
