@@ -28,6 +28,7 @@ Notes are stored as ordinary Markdown files (lists/checklists are real Markdown;
 
 - **Notes folder** — vault folder where notes are created/deleted. Pick an existing folder or type a new path (it's created on first note).
 - **Font** — font family for note text (blank = Obsidian's text font).
+- **Font size** — text size for notes, in pixels.
 - **Timestamp format** — moment.js format string used by the `/t` command (default `YYYY-MM-DD HH:mm`).
 - **Default note color** — color used for newly created notes.
 

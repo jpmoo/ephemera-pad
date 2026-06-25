@@ -141,7 +141,7 @@
 	flex: 1;
 	overflow-y: auto;
 	font-family: var(--np-font);
-	font-size: 14px;
+	font-size: var(--np-font-size, 14px);
 	line-height: 1.5;
 	outline: none;
 }

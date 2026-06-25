@@ -20,6 +20,7 @@ import {
 interface NotepadSettings {
 	folder: string;
 	font: string;
+	fontSize: number;
 	defaultColor: string;
 	timestampFormat: string;
 }
@@ -27,6 +28,7 @@ interface NotepadSettings {
 const DEFAULT_SETTINGS: NotepadSettings = {
 	folder: "Ephemera",
 	font: "",
+	fontSize: 14,
 	defaultColor: "#ffe08a",
 	timestampFormat: "YYYY-MM-DD HH:mm",
 };
@@ -294,6 +296,8 @@ class NotepadView extends ItemView {
 			"--np-font",
 			font || "var(--font-text, inherit)"
 		);
+		const size = this.plugin.settings.fontSize || 14;
+		this.cardEl.style.setProperty("--np-font-size", `${size}px`);
 	}
 
 	private async loadCurrent() {
@@ -871,6 +875,19 @@ class NotepadSettingTab extends PluginSettingTab {
 					this.plugin.settings.font = v;
 					await this.plugin.saveSettings();
 				});
+			});
+
+		new Setting(containerEl)
+			.setName("Font size")
+			.setDesc("Text size for notes, in pixels.")
+			.addSlider((s) => {
+				s.setLimits(10, 28, 1)
+					.setValue(this.plugin.settings.fontSize)
+					.setDynamicTooltip()
+					.onChange(async (v) => {
+						this.plugin.settings.fontSize = v;
+						await this.plugin.saveSettings();
+					});
 			});
 
 		new Setting(containerEl)
