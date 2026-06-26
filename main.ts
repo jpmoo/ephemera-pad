@@ -428,10 +428,12 @@ class NotepadView extends ItemView {
 		this.prevBtn.disabled = atFirst;
 		this.nextBtn.toggleClass("is-disabled", atLast);
 		this.nextBtn.disabled = atLast;
-		// Nothing to delete when there are no notes.
+		// Nothing to delete or view as raw when there are no notes.
 		const noNotes = this.files.length === 0;
 		this.delBtn.toggleClass("is-disabled", noNotes);
 		this.delBtn.disabled = noNotes;
+		this.sourceBtn.toggleClass("is-disabled", noNotes);
+		this.sourceBtn.disabled = noNotes;
 	}
 
 	private renderMeta() {
